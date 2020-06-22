@@ -2,7 +2,7 @@
 //-------show databases
 
 //Muestra el nombre de la bse de datos actual
-de.getName();
+db.getName();
 
 //Crea o cambia a otra base de datos
 // ------use cursoMongoDB
@@ -1467,11 +1467,11 @@ db.libros.insertMany(
 db.autores.aggregate(
     [
         {
-            $lookup:{
-                from:'libros',//Documento con el que se ha de hacer el join
-                localField:'_id',
-                foreignField:'autor_id',
-                as:'listadoLibros'
+            $lookup: {
+                from: 'libros',//Documento con el que se ha de hacer el join
+                localField: '_id',
+                foreignField: 'autor_id',
+                as: 'listadoLibros'
             }
         }
     ]
@@ -1480,25 +1480,118 @@ db.autores.aggregate(
 db.autores.aggregate(
     [
         {
-            $lookup:{
-                from:'libros',//Documento con el que se ha de hacer el join
-                localField:'_id',
-                foreignField:'autor_id',
-                as:'listadoLibros'
+            $lookup: {
+                from: 'libros',//Documento con el que se ha de hacer el join
+                localField: '_id',//hace referencia ala PK
+                foreignField: 'autor_id',//el campo de libros FK
+                as: 'listadoLibros'//Alias ddel resultado del join
             }
         },
         {
-            $match:{
-                listadoLibros:{
-                    $ne:[]
+            $match: {//Condición que indica que el resultado debe ser diferente de un arreglo vacio
+                listadoLibros: {
+                    $ne: []
                 }
             }
         },
         {
-            $project:{
-                _id:false,
+            $project: {
+                _id: false,
                 nombre: true
             }
         }
     ]
 ).pretty()
+
+
+///Generea un documento por cada elemento de la lista
+//Genera $unwind
+
+db.autores.aggregate(
+    [
+        {
+            $lookup: {
+                from: 'libros',
+                localField: '_id',
+                foreignField: 'autor_id',
+                as: 'listadoLibros'
+            }
+        },
+        {
+            $unwind: '$listadoLibros'
+        },
+        {
+            $project: {
+                _id: false,
+                nombre: true,
+                libro: '$listadoLibros'
+            }
+        }
+    ]
+).pretty()
+
+
+//RULES se define un SCHEMA que los documentos que se inserten
+//tienen que cumlpir
+//https://docs.mongodb.com/manual/reference/method/db.createCollection/
+db.createCollection("contacts", {
+    validator: {
+        $jsonSchema: {
+            bsonType: "object",
+            required: ["phone"],
+            properties: {
+                phone: {
+                    bsonType: "string",
+                    description: "must be a string and is required"
+                },
+                email: {
+                    bsonType: "string",
+                    pattern: "@mongodb\.com$",
+                    description: "must be a string and match the regular expression pattern"
+                },
+                status: {
+                    enum: ["Unknown", "Incomplete"],
+                    description: "can only be one of the enum values"
+                }
+            }
+        }
+    }
+})
+
+//Este documento si es valido para esa collección
+var contacto = {
+    phone:'000-00'
+}
+
+db.contacts.insertOne(contacto);
+
+//Este documento no es valido, ya que el campo phone es requerido
+var contacto = {
+    numero:'000-00'
+}
+
+db.contacts.insertOne(contacto);
+
+
+//Respaldar una Base de Datos
+//mongodump --db <<nombreBD>> //Estos comandos no se ejecuta en el shell de mongo, se ejecuta en la terminal normal
+//mongodump --collection <<nombreColeccion>> --db <<nombreBD>>
+
+//mongorestore --db cursoMongoDB ./cursoMongoDB_dump
+//                  [nombre bd]  [ruta de los archivos de respaldo]
+//mongorestore --collection <<nombreColeccion>> --db <<nombreColeccion>> ./cursoMongoDB_dump/autores.bson
+//                            [nombreColección]             [nombre bd]  [ruta del archivo .bson de respaldo]
+
+
+/*
+    Comando para crear un entorno virtual de python 3.6
+    virtualenv -p /usr/bin/python3 env
+    activar entorno virtual
+    source env/bin/activate
+    Cadena de conexión a la base de datos
+    mongodb+srv://nestorjavier:<password>@cluster0-ttodu.mongodb.net/<dbname>?retryWrites=true&w=majority
+    Para completar la cadena de conexión falta agregar el password, por cuestiones de seguridad es recomendable usar variables de entorno en lugar del texto plano
+    para esto ultimo usamos la libreria python-decouple que se installa con el siguiente comando "pip3 install python-decouple"
+    y para poder realizar la conexión usamos la libreria pymongo que se instala con el siguiente comando "pip3 install pymongo"
+*/
+
